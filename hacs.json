@@ -1,0 +1,13 @@
+{
+  "name": "Skydance",
+  "domains": [
+    "skydance"
+  ],
+  "country": [
+    "EN"
+  ],
+  "render_readme": true,
+  "iot_class": [
+    "Local Polling"
+  ]
+}

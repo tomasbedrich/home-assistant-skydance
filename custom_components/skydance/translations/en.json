@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Skydance WiFi relay host",
+        "data": {
+          "host": "Host or IP",
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the host.",
+      "invalid_auth": "Authentication failure.",
+      "unknown": "Unknown error."
+    },
+    "abort": {
+      "already_configured": "Already configured for this host."
+    }
+  }
+}

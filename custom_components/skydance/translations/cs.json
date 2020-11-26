@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Skydance WiFi ovladač",
+        "data": {
+          "host": "Server nebo IP adresa",
+          "username": "Uživatelské jméno",
+          "password": "Heslo"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nelze se připojit k ovladači.",
+      "invalid_auth": "Neplatné uživatelské jméno nebo heslo.",
+      "unknown": "Neznámá chyba."
+    },
+    "abort": {
+      "already_configured": "Tento ovladač je již nakonfigurován."
+    }
+  }
+}
