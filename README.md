@@ -1,6 +1,6 @@
 # Overview
 
-A Home Assistant integration for communication with Skydance lighting WiFi relay.
+A Home Assistant integration for communication with Skydance lighting Wi-Fi relay.
 
 Based on [skydance](https://github.com/tomasbedrich/skydance) Python library.
 

@@ -1,68 +1,106 @@
 import asyncio
+import logging
+from typing import Any
 
-from homeassistant.components.light import (ATTR_BRIGHTNESS, LightEntity, SUPPORT_BRIGHTNESS, SUPPORT_COLOR_TEMP,
-                                            ATTR_COLOR_TEMP)
-from skydance.controller import Controller
+from homeassistant.components.light import (
+    ATTR_BRIGHTNESS,
+    LightEntity,
+    SUPPORT_BRIGHTNESS,
+    SUPPORT_COLOR_TEMP,
+    ATTR_COLOR_TEMP,
+)
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 
+from skydance.network.session import Session
+from skydance.protocol import (
+    State,
+    GetNumberOfZonesCommand,
+    GetNumberOfZonesResponse,
+    GetZoneNameCommand,
+    GetZoneNameResponse,
+    PORT,
+    PowerOnCommand,
+    PowerOffCommand,
+    TemperatureCommand,
+    BrightnessCommand,
+)
 from .const import DOMAIN, MANUFACTURER
 
+_LOGGER = logging.getLogger(__name__)
 
-# This function is called as part of the __init__.async_setup_entry (via the
-# hass.config_entries.async_forward_entry_setup call)
-async def async_setup_entry(hass, config, async_add_devices):
-    controller = hass.data[DOMAIN][config.entry_id]
-    # TODO zone discovery
-    new_devices = [CCTLight(controller, zone) for zone in (1, 2)]
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_devices):
+    session = Session(entry.data["ip"], PORT)
+    state = State()
+    hass.data[DOMAIN][entry.entry_id] = {
+        "session": session,
+        "state": state,
+    }
+
+    _LOGGER.info("Getting number of zones")
+    cmd = GetNumberOfZonesCommand(state).raw
+    await session.write(cmd)
+    state.increment_frame_number()
+    res = await session.read(64)
+    number_of_zones = GetNumberOfZonesResponse(res).number
+
+    new_devices = []
+    for zone_num in range(1, number_of_zones + 1):
+        _LOGGER.info("Getting name of zone=%d", zone_num)
+        cmd = GetZoneNameCommand(state, zone=zone_num).raw
+        await session.write(cmd)
+        state.increment_frame_number()
+        res = await session.read(64)
+        zone_name = GetZoneNameResponse(res).name
+        _LOGGER.debug("Zone=%d has name=%s", zone_num, zone_name)
+        device = Zone(entry, session, state, zone_num, zone_name)
+        new_devices.append(device)
+
     if new_devices:
         async_add_devices(new_devices)
 
 
-class CCTLight(LightEntity):
+async def async_unload_entry(hass, entry):
+    session = hass.data[DOMAIN].pop(entry.entry_id)["session"]
+    await session.close()
+
+
+class Zone(LightEntity):
     supported_features = SUPPORT_BRIGHTNESS | SUPPORT_COLOR_TEMP
 
-    def __init__(self, controller, zone):
-        self._controller: Controller = controller
-        self._zone = zone
-        self._name = f"Skydance Zone {zone}"
+    def __init__(
+        self,
+        entry: ConfigEntry,
+        session: Session,
+        state: State,
+        zone_num: int,
+        zone_name: str,
+    ):
+        self._entry = entry
+        self._session = session
+        self._state = state
+        self._zone_num = zone_num
+        self._zone_name = zone_name
 
-        self._state = None
+        self._power = None
         self._brightness = None
         self._color_temp = None
 
     @property
     def name(self):
-        return self._name
+        return self._zone_name
 
     @property
     def unique_id(self):
-        # An entity is looked up in the registry based on a combination of the platform type (e.g., light),
-        # and the integration name (domain) (e.g. hue)
-        # and the unique ID of the entity.
-        # TODO find something more unique
-        return f"{DOMAIN}-{self._zone}"
+        return "-".join(
+            [DOMAIN, self._entry.data["mac"].replace(":", ""), str(self._zone_num)]
+        )
 
-    # Information about the devices that is partially visible in the UI.
-    # The most critical thing here is to give this entity a name so it is displayed
-    # as a "device" in the HA UI. This name is used on the Devices overview table,
-    # and the initial screen when the device is added (rather than the entity name
-    # property below). You can then associate other Entities (eg: a battery
-    # sensor) with this device, so it shows more like a unified element in the UI.
-    # For example, an associated battery sensor will be displayed in the right most
-    # column in the Configuration > Devices view for a device.
-    # To associate an entity with this device, the device_info must also return an
-    # identical "identifiers" attribute, but not return a name attribute.
-    # See the sensors.py file for the corresponding example setup.
-    # Additional meta data can also be returned here, including sw_version (displayed
-    # as Firmware), model and manufacturer (displayed as <model> by <manufacturer>)
-    # shown on the device info screen. The Manufacturer and model also have their
-    # respective columns on the Devices overview table. Note: Many of these must be
-    # set when the device is first added, and they are not always automatically
-    # refreshed by HA from it's internal cache.
-    # For more information see:
-    # https://developers.home-assistant.io/docs/device_registry_index/#device-properties
     @property
     def device_info(self):
         """Information about this entity/device."""
+        # https://developers.home-assistant.io/docs/device_registry_index/#device-properties
         return {
             "identifiers": {(DOMAIN, self.unique_id)},
             # If desired, the name for the device could be different to the entity
@@ -73,7 +111,7 @@ class CCTLight(LightEntity):
 
     @property
     def is_on(self):
-        return self._state
+        return self._power
 
     @property
     def brightness(self):
@@ -99,28 +137,54 @@ class CCTLight(LightEntity):
             await task
 
     async def _turn_on(self):
-        await self._controller.power_zone(self._zone, True)
-        self._state = True
+        _LOGGER.debug("Powering on zone=%s", self.unique_id)
+        cmd = PowerOnCommand(self._state, zone=self._zone_num).raw
+        await self._session.write(cmd)
+        self._state.increment_frame_number()
+        self._power = True
 
     async def _set_brightness(self, brightness):
-        await self._controller.dim_zone(self._zone, brightness)
+        cmd = BrightnessCommand(
+            self._state, zone=self._zone_num, brightness=brightness
+        ).raw
+        await self._session.write(cmd)
+        self._state.increment_frame_number()
         self._brightness = brightness
 
     async def _set_color_temp(self, color_temp):
-        temperature_byte = int(255 - 255 * ((color_temp - self.min_mireds) / (self.max_mireds - self.min_mireds)))
-        await self._controller.temp_zone(self._zone, temperature_byte)
+        temperature_byte = int(
+            255
+            - 255
+            * ((color_temp - self.min_mireds) / (self.max_mireds - self.min_mireds))
+        )
+        cmd = TemperatureCommand(
+            self._state, zone=self._zone_num, temperature=temperature_byte
+        ).raw
+        await self._session.write(cmd)
+        self._state.increment_frame_number()
         self._color_temp = color_temp
 
     async def async_turn_off(self, **kwargs):
-        await self._controller.power_zone(self._zone, False)
-        self._state = False
+        _LOGGER.debug("Powering off zone=%s", self.unique_id)
+        cmd = PowerOffCommand(self._state, zone=self._zone_num).raw
+        await self._session.write(cmd)
+        self._state.increment_frame_number()
+        self._power = False
 
-    def update(self):
+    async def async_update(self):
         """Fetch new state data for this light.
         This is the only method that should fetch new data (do I/O).
         """
         # TODO implement
         pass
-        # self._light.update()
+        # await self._light.update()
         # self._state = self._light.is_on()
         # self._brightness = self._light.brightness
+
+    def turn_on(self, **kwargs: Any):
+        # we do not support non-async API
+        return None
+
+    def turn_off(self, **kwargs: Any):
+        # we do not support non-async API
+        return None
