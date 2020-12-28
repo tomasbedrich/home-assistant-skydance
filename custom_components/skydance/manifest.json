@@ -8,7 +8,7 @@
     "@tomasbedrich"
   ],
   "requirements": [
-    "git+https://github.com/tomasbedrich/skydance.git@master#skydance==0.1.1"
+    "skydance==0.1.1"
   ],
   "config_flow": true
 }
