@@ -10,7 +10,9 @@ from homeassistant.components.light import (
     ATTR_COLOR_TEMP,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import STATE_ON
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from skydance.network.session import Session
 from skydance.protocol import (
@@ -66,7 +68,7 @@ async def async_unload_entry(hass, entry):
     await session.close()
 
 
-class Zone(LightEntity):
+class Zone(LightEntity, RestoreEntity):
     supported_features = SUPPORT_BRIGHTNESS | SUPPORT_COLOR_TEMP
 
     def __init__(
@@ -83,7 +85,7 @@ class Zone(LightEntity):
         self._zone_num = zone_num
         self._zone_name = zone_name
 
-        self._power = None
+        self._is_on = None
         self._brightness = None
         self._color_temp = None
 
@@ -110,8 +112,20 @@ class Zone(LightEntity):
         }
 
     @property
+    def assumed_state(self):
+        return True
+
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        last_state = await self.async_get_last_state()
+        if last_state:
+            self._is_on = last_state.state == STATE_ON
+            self._brightness = last_state.attributes.get("brightness")
+            self._color_temp = last_state.attributes.get("color_temp")
+
+    @property
     def is_on(self):
-        return self._power
+        return self._is_on
 
     @property
     def brightness(self):
@@ -141,7 +155,7 @@ class Zone(LightEntity):
         cmd = PowerOnCommand(self._state, zone=self._zone_num).raw
         await self._session.write(cmd)
         self._state.increment_frame_number()
-        self._power = True
+        self._is_on = True
 
     async def _set_brightness(self, brightness):
         cmd = BrightnessCommand(
@@ -169,17 +183,7 @@ class Zone(LightEntity):
         cmd = PowerOffCommand(self._state, zone=self._zone_num).raw
         await self._session.write(cmd)
         self._state.increment_frame_number()
-        self._power = False
-
-    async def async_update(self):
-        """Fetch new state data for this light.
-        This is the only method that should fetch new data (do I/O).
-        """
-        # TODO implement
-        pass
-        # await self._light.update()
-        # self._state = self._light.is_on()
-        # self._brightness = self._light.brightness
+        self._is_on = False
 
     def turn_on(self, **kwargs: Any):
         # we do not support non-async API
