@@ -166,17 +166,20 @@ class Zone(LightEntity, RestoreEntity):
         self._brightness = brightness
 
     async def _set_color_temp(self, color_temp):
-        temperature_byte = int(
-            255
-            - 255
-            * ((color_temp - self.min_mireds) / (self.max_mireds - self.min_mireds))
-        )
+        temperature_byte = self._convert_color_temp(color_temp)
         cmd = TemperatureCommand(
             self._state, zone=self._zone_num, temperature=temperature_byte
         ).raw
         await self._session.write(cmd)
         self._state.increment_frame_number()
         self._color_temp = color_temp
+
+    def _convert_color_temp(self, mireds):
+        """Convert color temperature from mireds to byte."""
+        return int(
+            255
+            - 255 * ((mireds - self.min_mireds) / (self.max_mireds - self.min_mireds))
+        )
 
     async def async_turn_off(self, **kwargs):
         _LOGGER.debug("Powering off zone=%s", self.unique_id)
