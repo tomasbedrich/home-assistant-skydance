@@ -156,6 +156,7 @@ class Zone(LightEntity, RestoreEntity):
         self._is_on = True
 
     async def _set_brightness(self, brightness):
+        _LOGGER.debug("Setting brightness=%d for zone=%s", brightness, self.unique_id)
         cmd = BrightnessCommand(
             self._state, zone=self._zone_num, brightness=brightness
         ).raw
@@ -164,6 +165,7 @@ class Zone(LightEntity, RestoreEntity):
         self._brightness = brightness
 
     async def _set_color_temp(self, color_temp):
+        _LOGGER.debug("Setting color_temp=%d for zone=%s", color_temp, self.unique_id)
         temperature_byte = self._convert_color_temp(color_temp)
         cmd = TemperatureCommand(
             self._state, zone=self._zone_num, temperature=temperature_byte
