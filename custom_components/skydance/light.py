@@ -137,9 +137,7 @@ class Zone(LightEntity, RestoreEntity):
 
     async def async_turn_on(self, **kwargs):
         # Only execute what is necessary, nothing else
-        tasks = []
-        if not self.is_on:
-            tasks.append(self._turn_on())
+        tasks = [self._turn_on()]
         if ATTR_BRIGHTNESS in kwargs:
             tasks.append(self._set_brightness(kwargs[ATTR_BRIGHTNESS]))
         if ATTR_COLOR_TEMP in kwargs:
