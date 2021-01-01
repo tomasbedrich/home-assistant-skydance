@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from typing import Any
 
@@ -28,12 +27,13 @@ from skydance.protocol import (
     BrightnessCommand,
 )
 from .const import DOMAIN, MANUFACTURER
+from .session import SequentialWriterSession
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_devices):
-    session = Session(entry.data["ip"], PORT)
+    session = SequentialWriterSession(entry.data["ip"], PORT)
     state = State()
     hass.data[DOMAIN][entry.entry_id] = {
         "session": session,
@@ -137,16 +137,11 @@ class Zone(LightEntity, RestoreEntity):
 
     async def async_turn_on(self, **kwargs):
         # Only execute what is necessary, nothing else
-        tasks = [self._turn_on()]
+        await self._turn_on()
         if ATTR_BRIGHTNESS in kwargs:
-            tasks.append(self._set_brightness(kwargs[ATTR_BRIGHTNESS]))
+            await self._set_brightness(kwargs[ATTR_BRIGHTNESS])
         if ATTR_COLOR_TEMP in kwargs:
-            tasks.append(self._set_color_temp(kwargs[ATTR_COLOR_TEMP]))
-        for i, task in enumerate(tasks):
-            if i != 0:
-                # FIXME do somehow better
-                await asyncio.sleep(0.25)
-            await task
+            await self._set_color_temp(kwargs[ATTR_COLOR_TEMP])
 
     async def _turn_on(self):
         _LOGGER.debug("Powering on zone=%s", self.unique_id)
