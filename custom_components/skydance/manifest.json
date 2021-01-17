@@ -8,7 +8,7 @@
     "@tomasbedrich"
   ],
   "requirements": [
-    "skydance==0.1.1"
+    "skydance==0.1.2"
   ],
   "config_flow": true
 }
