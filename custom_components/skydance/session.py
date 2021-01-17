@@ -12,7 +12,7 @@ class SequentialWriterSession(Session):
     Automatically put sleep between writes to allow Skydance Wi-Fi controller to process commands.
     """
 
-    PAUSE_BETWEEN_WRITES = 0.15  # seconds
+    PAUSE_BETWEEN_WRITES = 0.2  # seconds
 
     def __init__(self, host, port):
         super().__init__(host, port)
