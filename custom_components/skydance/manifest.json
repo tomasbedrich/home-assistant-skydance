@@ -1,16 +1,16 @@
 {
   "domain": "skydance",
   "name": "Skydance",
-  "version": "1.1.5",
+  "version": "2.0.0",
   "iot_class": "assumed_state",
   "documentation": "https://github.com/tomasbedrich/home-assistant-skydance",
-  "issue_tracker": "https://github.com/tomasbedrich/home-assistant-skydance",
-  "dependencies": [],
+  "issue_tracker": "https://github.com/tomasbedrich/home-assistant-skydance/issues",
+  "dependencies": ["network"],
   "codeowners": [
     "@tomasbedrich"
   ],
   "requirements": [
-    "skydance==0.1.2"
+    "skydance==1.0.0"
   ],
   "config_flow": true
 }
