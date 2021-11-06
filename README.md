@@ -2,6 +2,8 @@
 
 A Home Assistant integration for communication with Skydance lighting Wi-Fi relay.
 
+<a href="https://www.buymeacoffee.com/tomasbedrich" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 30px !important;width: 106px !important;" ></a>
+
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
 
 Based on [skydance](https://github.com/tomasbedrich/skydance) Python library.
