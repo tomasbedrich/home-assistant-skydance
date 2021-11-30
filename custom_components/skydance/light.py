@@ -94,7 +94,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         _LOGGER,
         name=DOMAIN,
         update_method=async_update,
-        update_interval=timedelta(hours=1),  # refreshing device info can be relativelly infrequent
+        # update_interval=timedelta(hours=1),  # do NOT update data at all - only after HA restart
     )
     await coordinator.async_config_entry_first_refresh()
 
