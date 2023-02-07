@@ -22,7 +22,11 @@ from homeassistant.helpers import device_registry
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.update_coordinator import UpdateFailed, DataUpdateCoordinator, CoordinatorEntity
+from homeassistant.helpers.update_coordinator import (
+    UpdateFailed,
+    DataUpdateCoordinator,
+    CoordinatorEntity,
+)
 
 from skydance.enum import ZoneType
 from skydance.network.session import Session
@@ -51,7 +55,9 @@ _LOGGER = logging.getLogger(__name__)
 # _ = await self._session.read(64)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+):
     session = SequentialWriterSession(entry.data["ip"], PORT)
     state = State()
 
@@ -80,8 +86,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 state.increment_frame_number()
                 res = await session.read(64)
                 zone_info = GetZoneInfoResponse(res)
-                _LOGGER.debug("Zone=%d has type=%s, name=%s", zone_num, zone_info.type, zone_info.name)
-                zones.append({"num": zone_num, "name": zone_info.name, "type": zone_info.type})
+                _LOGGER.debug(
+                    "Zone=%d has type=%s, name=%s",
+                    zone_num,
+                    zone_info.type,
+                    zone_info.name,
+                )
+                zones.append(
+                    {"num": zone_num, "name": zone_info.name, "type": zone_info.type}
+                )
             return zones
 
         except (IOError, ValueError) as e:
@@ -108,7 +121,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     new_entities = []
     for zone_info in coordinator.data:
-        zone = Zone(entry, coordinator, session, state, zone_info["num"], zone_info["type"], zone_info["name"])
+        zone = Zone(
+            entry,
+            coordinator,
+            session,
+            state,
+            zone_info["num"],
+            zone_info["type"],
+            zone_info["name"],
+        )
         new_entities.append(zone)
 
     if new_entities:
@@ -140,7 +161,9 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
         if zone_type is ZoneType.RGBCCT:
             # TODO add RGBCCT support
             zone_type = ZoneType.RGBW
-            _LOGGER.warning("RGBCCT / RGBWW lights are not supported yet. Please file an issue on Github!")
+            _LOGGER.warning(
+                "RGBCCT / RGBWW lights are not supported yet. Please file an issue on Github!"
+            )
 
         self._entry = entry
         self._session = session
@@ -221,7 +244,9 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
 
     async def _set_brightness(self, brightness: int):
         _LOGGER.debug("Setting brightness=%d for zone=%s", brightness, self.unique_id)
-        cmd = BrightnessCommand(self._state, zone=self._zone_num, brightness=brightness).raw
+        cmd = BrightnessCommand(
+            self._state, zone=self._zone_num, brightness=brightness
+        ).raw
         await self._session.write(cmd)
         self._state.increment_frame_number()
         _ = await self._session.read(64)
@@ -230,24 +255,48 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
     async def _set_color_temp(self, color_temp: int):
         _LOGGER.debug("Setting color_temp=%d for zone=%s", color_temp, self.unique_id)
         temperature_byte = self._convert_color_temp(color_temp)
-        cmd = TemperatureCommand(self._state, zone=self._zone_num, temperature=temperature_byte).raw
+        cmd = TemperatureCommand(
+            self._state, zone=self._zone_num, temperature=temperature_byte
+        ).raw
         await self._session.write(cmd)
         self._state.increment_frame_number()
         _ = await self._session.read(64)
         self._attr_color_temp = color_temp
 
     async def _set_rgb(self, red: int, green: int, blue: int):
-        _LOGGER.debug("Setting red=%d green=%d blue=%d for zone=%s", red, green, blue, self.unique_id)
+        _LOGGER.debug(
+            "Setting red=%d green=%d blue=%d for zone=%s",
+            red,
+            green,
+            blue,
+            self.unique_id,
+        )
         # no dedicated command for RGB only is available
-        cmd = RGBWCommand(self._state, zone=self._zone_num, red=red, green=green, blue=blue, white=0).raw
+        cmd = RGBWCommand(
+            self._state, zone=self._zone_num, red=red, green=green, blue=blue, white=0
+        ).raw
         await self._session.write(cmd)
         self._state.increment_frame_number()
         _ = await self._session.read(64)
         self._attr_rgb_color = red, green, blue
 
     async def _set_rgbw(self, red: int, green: int, blue: int, white: int):
-        _LOGGER.debug("Setting red=%d green=%d blue=%d white=%d for zone=%s", red, green, blue, white, self.unique_id)
-        cmd = RGBWCommand(self._state, zone=self._zone_num, red=red, green=green, blue=blue, white=white).raw
+        _LOGGER.debug(
+            "Setting red=%d green=%d blue=%d white=%d for zone=%s",
+            red,
+            green,
+            blue,
+            white,
+            self.unique_id,
+        )
+        cmd = RGBWCommand(
+            self._state,
+            zone=self._zone_num,
+            red=red,
+            green=green,
+            blue=blue,
+            white=white,
+        ).raw
         await self._session.write(cmd)
         self._state.increment_frame_number()
         _ = await self._session.read(64)
@@ -255,7 +304,10 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
 
     def _convert_color_temp(self, mireds):
         """Convert color temperature from mireds to byte."""
-        return int(255 - 255 * ((mireds - self.min_mireds) / (self.max_mireds - self.min_mireds)))
+        return int(
+            255
+            - 255 * ((mireds - self.min_mireds) / (self.max_mireds - self.min_mireds))
+        )
 
     async def async_turn_off(self, **kwargs):
         await self._turn_off()

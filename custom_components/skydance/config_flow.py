@@ -48,7 +48,6 @@ async def validate_input(hass: core.HomeAssistant, data: dict):
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_ASSUMED
 
