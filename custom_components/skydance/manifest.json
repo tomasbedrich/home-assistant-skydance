@@ -1,11 +1,16 @@
 {
   "domain": "skydance",
   "name": "Skydance",
-  "version": "2.0.1",
+  "version": "3.0.0",
+  "integration_type": "device",
   "iot_class": "assumed_state",
   "documentation": "https://github.com/tomasbedrich/home-assistant-skydance",
   "issue_tracker": "https://github.com/tomasbedrich/home-assistant-skydance/issues",
   "dependencies": ["network"],
+  "loggers": [
+    "custom_components.skydance",
+    "skydance"
+  ],
   "codeowners": [
     "@tomasbedrich"
   ],
