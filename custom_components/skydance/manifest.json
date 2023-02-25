@@ -1,21 +1,23 @@
 {
-  "domain": "skydance",
-  "name": "Skydance",
-  "version": "3.0.0",
-  "integration_type": "device",
-  "iot_class": "assumed_state",
-  "documentation": "https://github.com/tomasbedrich/home-assistant-skydance",
-  "issue_tracker": "https://github.com/tomasbedrich/home-assistant-skydance/issues",
-  "dependencies": ["network"],
-  "loggers": [
-    "custom_components.skydance",
-    "skydance"
-  ],
-  "codeowners": [
-    "@tomasbedrich"
-  ],
-  "requirements": [
-    "skydance==1.0.0"
-  ],
-  "config_flow": true
+	"domain": "skydance",
+	"name": "Skydance",
+	"codeowners": [
+		"@tomasbedrich"
+	],
+	"config_flow": true,
+	"dependencies": [
+		"network"
+	],
+	"documentation": "https://github.com/tomasbedrich/home-assistant-skydance",
+	"integration_type": "device",
+	"iot_class": "assumed_state",
+	"issue_tracker": "https://github.com/tomasbedrich/home-assistant-skydance/issues",
+	"loggers": [
+		"custom_components.skydance",
+		"skydance"
+	],
+	"requirements": [
+		"skydance==1.0.0"
+	],
+	"version": "3.0.0"
 }
