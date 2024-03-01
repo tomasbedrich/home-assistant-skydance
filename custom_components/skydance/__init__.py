@@ -1,4 +1,5 @@
 """A Home Assistant integration for communication with Skydance lighting Wi-Fi relay."""
+
 import logging
 
 from homeassistant.config_entries import ConfigEntry
