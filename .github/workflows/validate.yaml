@@ -14,5 +14,5 @@ jobs:
       - uses: home-assistant/actions/hassfest@master
       - run: |
           python3 -m pip install wheel setuptools
-          python3 -m pip install black
+          python3 -m pip install black~=24.0
           python3 -m black . --check
