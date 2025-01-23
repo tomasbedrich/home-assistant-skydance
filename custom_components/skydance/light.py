@@ -4,13 +4,9 @@ from datetime import timedelta
 
 from homeassistant.components.light import (
     LightEntity,
+    ColorMode,
     ATTR_BRIGHTNESS,
-    ATTR_COLOR_TEMP,
-    COLOR_MODE_ONOFF,
-    COLOR_MODE_BRIGHTNESS,
-    COLOR_MODE_COLOR_TEMP,
-    COLOR_MODE_RGBW,
-    COLOR_MODE_RGB,
+    ATTR_COLOR_TEMP_KELVIN,
     ATTR_RGBW_COLOR,
     ATTR_RGB_COLOR,
 )
@@ -199,7 +195,7 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
         if last_state:
             self._is_on = last_state.state == STATE_ON
             self._attr_brightness = last_state.attributes.get(ATTR_BRIGHTNESS)
-            self._attr_color_temp = last_state.attributes.get(ATTR_COLOR_TEMP)
+            self._attr_color_temp = last_state.attributes.get(ATTR_COLOR_TEMP_KELVIN)
             self._attr_rgb_color = last_state.attributes.get(ATTR_RGB_COLOR)
             self._attr_rgbw_color = last_state.attributes.get(ATTR_RGBW_COLOR)
 
@@ -210,11 +206,11 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
     @property
     def color_mode(self) -> str:
         return {
-            ZoneType.RGBW: COLOR_MODE_RGBW,
-            ZoneType.RGB: COLOR_MODE_RGB,
-            ZoneType.CCT: COLOR_MODE_COLOR_TEMP,
-            ZoneType.Dimmer: COLOR_MODE_BRIGHTNESS,
-            ZoneType.Switch: COLOR_MODE_ONOFF,
+            ZoneType.RGBW: ColorMode.RGBW,
+            ZoneType.RGB: ColorMode.RGB,
+            ZoneType.CCT: ColorMode.COLOR_TEMP,
+            ZoneType.Dimmer: ColorMode.BRIGHTNESS,
+            ZoneType.Switch: ColorMode.ONOFF,
         }[self._zone_type]
 
     @property
@@ -228,8 +224,8 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
             await self._set_rgbw(*kwargs[ATTR_RGBW_COLOR])
         if ATTR_RGB_COLOR in kwargs:
             await self._set_rgb(*kwargs[ATTR_RGB_COLOR])
-        if ATTR_COLOR_TEMP in kwargs:
-            await self._set_color_temp(kwargs[ATTR_COLOR_TEMP])
+        if ATTR_COLOR_TEMP_KELVIN in kwargs:
+            await self._set_color_temp(kwargs[ATTR_COLOR_TEMP_KELVIN])
         if ATTR_BRIGHTNESS in kwargs:
             await self._set_brightness(kwargs[ATTR_BRIGHTNESS])
         self.async_write_ha_state()
