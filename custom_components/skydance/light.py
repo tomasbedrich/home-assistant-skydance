@@ -9,6 +9,8 @@ from homeassistant.components.light import (
     ATTR_COLOR_TEMP_KELVIN,
     ATTR_RGBW_COLOR,
     ATTR_RGB_COLOR,
+    DEFAULT_MIN_KELVIN,
+    DEFAULT_MAX_KELVIN,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_ON
@@ -142,6 +144,9 @@ async def async_unload_entry(hass, entry):
 
 
 class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
+    _attr_min_color_temp_kelvin = DEFAULT_MIN_KELVIN
+    _attr_max_color_temp_kelvin = DEFAULT_MAX_KELVIN
+
     def __init__(
         self,
         entry: ConfigEntry,
@@ -298,16 +303,6 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
         _ = await self._session.read(64)
         self._attr_rgbw_color = red, green, blue, white
 
-    @property
-    def min_color_temp_kelvin(self) -> int:
-        """Return the warmest color_temp_kelvin that this light supports."""
-        return 2000  # Warm white
-
-    @property
-    def max_color_temp_kelvin(self) -> int:
-        """Return the coldest color_temp_kelvin that this light supports."""
-        return 6500  # Cool white
-
     def _convert_color_temp(self, kelvin: int) -> int:
         """Convert color temperature from kelvin to byte (0-255).
 
@@ -315,13 +310,13 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
         the CCT hardware expectation.
         """
         # Clamp kelvin to valid range
-        kelvin = max(self.min_color_temp_kelvin, min(kelvin, self.max_color_temp_kelvin))
+        kelvin = max(self._attr_min_color_temp_kelvin, min(kelvin, self._attr_max_color_temp_kelvin))
         return int(
             255
             - 255
             * (
-                (kelvin - self.min_color_temp_kelvin)
-                / (self.max_color_temp_kelvin - self.min_color_temp_kelvin)
+                (kelvin - self._attr_min_color_temp_kelvin)
+                / (self._attr_max_color_temp_kelvin - self._attr_min_color_temp_kelvin)
             )
         )
 
