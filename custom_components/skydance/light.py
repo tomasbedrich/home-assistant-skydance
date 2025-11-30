@@ -9,6 +9,8 @@ from homeassistant.components.light import (
     ATTR_COLOR_TEMP_KELVIN,
     ATTR_RGBW_COLOR,
     ATTR_RGB_COLOR,
+    DEFAULT_MIN_KELVIN,
+    DEFAULT_MAX_KELVIN,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_ON
@@ -142,6 +144,9 @@ async def async_unload_entry(hass, entry):
 
 
 class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
+    _attr_min_color_temp_kelvin = DEFAULT_MIN_KELVIN
+    _attr_max_color_temp_kelvin = DEFAULT_MAX_KELVIN
+
     def __init__(
         self,
         entry: ConfigEntry,
@@ -195,7 +200,7 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
         if last_state:
             self._is_on = last_state.state == STATE_ON
             self._attr_brightness = last_state.attributes.get(ATTR_BRIGHTNESS)
-            self._attr_color_temp = last_state.attributes.get(ATTR_COLOR_TEMP_KELVIN)
+            self._attr_color_temp_kelvin = last_state.attributes.get(ATTR_COLOR_TEMP_KELVIN)
             self._attr_rgb_color = last_state.attributes.get(ATTR_RGB_COLOR)
             self._attr_rgbw_color = last_state.attributes.get(ATTR_RGBW_COLOR)
 
@@ -257,7 +262,7 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
         await self._session.write(cmd)
         self._state.increment_frame_number()
         _ = await self._session.read(64)
-        self._attr_color_temp = color_temp
+        self._attr_color_temp_kelvin = color_temp
 
     async def _set_rgb(self, red: int, green: int, blue: int):
         _LOGGER.debug(
@@ -298,11 +303,21 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
         _ = await self._session.read(64)
         self._attr_rgbw_color = red, green, blue, white
 
-    def _convert_color_temp(self, mireds):
-        """Convert color temperature from mireds to byte."""
+    def _convert_color_temp(self, kelvin: int) -> int:
+        """Convert color temperature from kelvin to byte (0-255).
+
+        Lower kelvin values (warmer) map to higher byte values, matching
+        the CCT hardware expectation.
+        """
+        # Clamp kelvin to valid range
+        kelvin = max(self._attr_min_color_temp_kelvin, min(kelvin, self._attr_max_color_temp_kelvin))
         return int(
             255
-            - 255 * ((mireds - self.min_mireds) / (self.max_mireds - self.min_mireds))
+            - 255
+            * (
+                (kelvin - self._attr_min_color_temp_kelvin)
+                / (self._attr_max_color_temp_kelvin - self._attr_min_color_temp_kelvin)
+            )
         )
 
     async def async_turn_off(self, **kwargs):
