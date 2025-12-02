@@ -306,17 +306,19 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
     def _convert_color_temp(self, kelvin: int) -> int:
         """Convert color temperature from kelvin to byte (0-255).
 
-        Lower kelvin values (warmer) map to higher byte values, matching
-        the CCT hardware expectation.
+        Lower kelvin values (warmer) map to lower byte values,
+        higher kelvin values (cooler) map to higher byte values.
         """
         # Clamp kelvin to valid range
         kelvin = max(self._attr_min_color_temp_kelvin, min(kelvin, self._attr_max_color_temp_kelvin))
+        temp_range = self._attr_max_color_temp_kelvin - self._attr_min_color_temp_kelvin
+        if temp_range == 0:
+            return 0
         return int(
             255
-            - 255
             * (
                 (kelvin - self._attr_min_color_temp_kelvin)
-                / (self._attr_max_color_temp_kelvin - self._attr_min_color_temp_kelvin)
+                / temp_range
             )
         )
 
