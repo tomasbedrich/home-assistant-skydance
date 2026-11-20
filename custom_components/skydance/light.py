@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from functools import partial
 
@@ -27,8 +28,10 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from skydance.enum import ZoneType
+from skydance.network.session import Session
 from skydance.protocol import (
     BrightnessCommand,
+    FrameError,
     PowerOffCommand,
     PowerOnCommand,
     RGBWCommand,
@@ -37,7 +40,8 @@ from skydance.protocol import (
 
 from . import SkydanceConfigEntry
 from .const import DOMAIN
-from .session import SkydanceClient, SkydanceError
+
+_COMMUNICATION_ERRORS = (OSError, asyncio.TimeoutError, EOFError, FrameError)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -75,7 +79,7 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
         self,
         entry: SkydanceConfigEntry,
         coordinator: DataUpdateCoordinator,
-        client: SkydanceClient,
+        session: Session,
         zone_num: int,
         zone_type: ZoneType,
         zone_name: str,
@@ -90,7 +94,7 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
             )
 
         self._entry = entry
-        self._client = client
+        self._session = session
         self._zone_num = zone_num
         self._zone_type = zone_type
         self._zone_name = zone_name
@@ -160,8 +164,8 @@ class Zone(CoordinatorEntity, LightEntity, RestoreEntity):
         service call fails fast and visibly instead of hanging forever.
         """
         try:
-            return await self._client.async_request(factory)
-        except SkydanceError as err:
+            return await self._session.request(factory)
+        except _COMMUNICATION_ERRORS as err:
             raise HomeAssistantError(
                 f"Skydance relay did not answer a command for zone "
                 f"{self._zone_name!r}: {err}"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from functools import partial
@@ -11,22 +12,19 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, async_get
-from homeassistant.helpers.event import async_track_time_interval
-from homeassistant.helpers.update_coordinator import (
-    DataUpdateCoordinator,
-    UpdateFailed,
-)
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from skydance.network.session import Session
 from skydance.protocol import (
     PORT,
+    FrameError,
     GetNumberOfZonesCommand,
     GetNumberOfZonesResponse,
     GetZoneInfoCommand,
     GetZoneInfoResponse,
 )
 
-from .const import DOMAIN, KEEPALIVE_INTERVAL, MANUFACTURER, PLATFORMS
-from .session import SkydanceClient, SkydanceError
+from .const import DOMAIN, MANUFACTURER, PLATFORMS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,9 +33,9 @@ CONFIG_SCHEMA = cv.platform_only_config_schema(DOMAIN)
 
 @dataclass
 class SkydanceRuntimeData:
-    """Objects shared by all entities of a config entry."""
+    """Objects shared by the entities of a config entry."""
 
-    client: SkydanceClient
+    session: Session
     coordinator: DataUpdateCoordinator[list[dict]]
 
 
@@ -49,17 +47,17 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     return True
 
 
-async def _async_discover_zones(client: SkydanceClient) -> list[dict]:
+async def _async_discover_zones(session: Session) -> list[dict]:
     """Read the zone layout of a relay."""
     try:
         _LOGGER.debug("Getting number of zones")
-        raw = await client.async_request(GetNumberOfZonesCommand)
+        raw = await session.request(GetNumberOfZonesCommand)
         number_of_zones = GetNumberOfZonesResponse(raw).number
 
         zones = []
         for zone_num in range(1, number_of_zones + 1):
             _LOGGER.debug("Getting info about zone=%d", zone_num)
-            raw = await client.async_request(partial(GetZoneInfoCommand, zone=zone_num))
+            raw = await session.request(partial(GetZoneInfoCommand, zone=zone_num))
             zone_info = GetZoneInfoResponse(raw)
             _LOGGER.debug(
                 "Zone=%d has type=%s, name=%s",
@@ -71,47 +69,24 @@ async def _async_discover_zones(client: SkydanceClient) -> list[dict]:
                 {"num": zone_num, "name": zone_info.name, "type": zone_info.type}
             )
         return zones
-    except (SkydanceError, ValueError, IndexError) as err:
-        # ValueError/IndexError happen when a malformed (out-of-order) frame
-        # slips through, but this should not leak as a raw exception.
+    except (OSError, asyncio.TimeoutError, EOFError, FrameError) as err:
         raise UpdateFailed(f"unable to read zones: {err}") from err
-
-
-async def _async_keepalive(client: SkydanceClient, _now) -> None:
-    """Keep the session alive and detect silently dead connections."""
-    try:
-        await client.async_ping()
-    except SkydanceError as err:
-        _LOGGER.debug("Keepalive ping failed: %s", err)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: SkydanceConfigEntry) -> bool:
     """Set up Skydance from a config entry."""
-    client = SkydanceClient(entry.data["ip"], PORT)
+    session = Session(entry.data["ip"], PORT)
+    entry.async_on_unload(session.async_close)
+
     coordinator: DataUpdateCoordinator[list[dict]] = DataUpdateCoordinator(
         hass,
         _LOGGER,
         name=DOMAIN,
-        update_method=partial(_async_discover_zones, client),
+        update_method=partial(_async_discover_zones, session),
         # do NOT update data at all - only after HA restart and on demand
     )
-
-    # The device must be reachable *before* the platforms are forwarded,
-    # otherwise ConfigEntryNotReady is raised too late and the entry is left
-    # loaded without any entities until it is reloaded by hand.
-    try:
-        await client.async_ping()
-    except SkydanceError as err:
-        await client.async_close()
-        raise ConfigEntryNotReady(
-            f"unable to reach the Skydance relay at {entry.data['ip']}"
-        ) from err
-
-    try:
-        await coordinator.async_config_entry_first_refresh()
-    except ConfigEntryNotReady:
-        await client.async_close()
-        raise
+    # Raises ConfigEntryNotReady when the relay cannot be reached.
+    await coordinator.async_config_entry_first_refresh()
 
     async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,
@@ -120,12 +95,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SkydanceConfigEntry) -> 
         manufacturer=MANUFACTURER,
     )
 
-    entry.runtime_data = SkydanceRuntimeData(client=client, coordinator=coordinator)
-    entry.async_on_unload(
-        async_track_time_interval(
-            hass, partial(_async_keepalive, client), KEEPALIVE_INTERVAL
-        )
-    )
+    entry.runtime_data = SkydanceRuntimeData(session=session, coordinator=coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -133,8 +103,4 @@ async def async_setup_entry(hass: HomeAssistant, entry: SkydanceConfigEntry) -> 
 
 async def async_unload_entry(hass: HomeAssistant, entry: SkydanceConfigEntry) -> bool:
     """Unload a config entry."""
-    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        return False
-
-    await entry.runtime_data.client.async_close()
-    return True
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
