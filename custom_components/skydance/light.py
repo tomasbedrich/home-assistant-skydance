@@ -59,7 +59,7 @@ async def async_setup_entry(
             Zone(
                 entry,
                 runtime.coordinator,
-                runtime.client,
+                runtime.session,
                 zone_info["num"],
                 zone_info["type"],
                 zone_info["name"],

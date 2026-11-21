@@ -76,7 +76,7 @@ async def _async_discover_zones(session: Session) -> list[dict]:
 async def async_setup_entry(hass: HomeAssistant, entry: SkydanceConfigEntry) -> bool:
     """Set up Skydance from a config entry."""
     session = Session(entry.data["ip"], PORT)
-    entry.async_on_unload(session.async_close)
+    entry.async_on_unload(session.close)
 
     coordinator: DataUpdateCoordinator[list[dict]] = DataUpdateCoordinator(
         hass,
